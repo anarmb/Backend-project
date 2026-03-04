@@ -1,12 +1,6 @@
 const Post = require("../models/Post.model.js");
 const User = require("../models/User.model.js");
-const cloudinary = require("cloudinary").v2;
-
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const cloudinary = require("../config/cloudinary.js");
 
 const createPost = async (req, res) => {
     try {
@@ -56,6 +50,40 @@ const getPostById = async (req, res) => {
     }
 };
 
+const updatePost = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const postFound = await Post.findById(id);
+
+        if (!postFound) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (req.user.role !== "admin" && postFound.author.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        const updateData = { ...req.body };
+
+        if (req.file) {
+            updateData.image = req.file.path;
+            if (postFound.image) {
+                const imgSplit = postFound.image.split("/");
+                const folderName = imgSplit[imgSplit.length - 2];
+                const fileName = imgSplit[imgSplit.length - 1].split(".")[0];
+                const publicId = `${folderName}/${fileName}`;
+                await cloudinary.uploader.destroy(publicId);
+            }
+        }
+
+        const postUpdated = await Post.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+
+        return res.status(200).json({ message: "Post updated", data: postUpdated });
+    } catch (error) {
+        return res.status(500).json({ message: "Error", error: error.message });
+    }
+};
+
 const deletePost = async (req, res) => {
     try {
         const { id } = req.params;
@@ -87,4 +115,4 @@ const deletePost = async (req, res) => {
     }
 };
 
-module.exports = { createPost, getAllPosts, deletePost, getPostById }
+module.exports = { createPost, getAllPosts, updatePost, deletePost, getPostById }

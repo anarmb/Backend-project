@@ -1,13 +1,8 @@
 const User = require("../models/User.model.js");
+const Post = require("../models/Post.model");
 const bcrypt = require("bcrypt");
 const { generateToken } = require("../utils/jwt.js");
-const cloudinary = require("cloudinary").v2;
-
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const cloudinary = require("../config/cloudinary.js");
 
 const login = async (req, res) => {
     try { 
@@ -89,32 +84,82 @@ const getUser = async (req, res) => {
     }
 };
 
+const updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userIdToken = req.user._id.toString();
+
+        if (req.user.role !== "admin" && userIdToken !== id) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        const userExists = await User.findById(id);
+        if (!userExists) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const updateData = { ...req.body };
+
+        if (updateData.password) {
+            updateData.password = bcrypt.hashSync(updateData.password, 10);
+        }
+
+        if (req.user.role !== "admin") {
+            delete updateData.role;
+        }
+
+        if (req.file) {
+            updateData.image = req.file.path;
+            if (userExists.image) {
+                const imgSplit = userExists.image.split("/");
+                const folderName = imgSplit[imgSplit.length - 2];
+                const fileName = imgSplit[imgSplit.length - 1].split(".")[0];
+                const publicId = `${folderName}/${fileName}`;
+                await cloudinary.uploader.destroy(publicId);
+            }
+        }
+
+        const userUpdated = await User.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+        
+        return res.status(200).json({ message: "User updated successfully", data: userUpdated });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Error", error: error.message });
+    }
+};
+
+
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
         const userFound = await User.findById(id);
-        if (!userFound) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        if (req.user.role !== "admin" && req.user._id.toString() !== id) {
-            return res.status(403).json({ message: "You don't have permission to delete this user" });
-        }
+        if (!userFound) return res.status(404).json({ message: "User not found" });
 
         if (userFound.image) {
             const imgSplit = userFound.image.split("/");
-            const folderName = imgSplit[imgSplit.length - 2];
-            const fileName = imgSplit[imgSplit.length - 1].split(".")[0];
-            const publicId = `${folderName}/${fileName}`;
-
+            const publicId = `${imgSplit[imgSplit.length - 2]}/${imgSplit[imgSplit.length - 1].split(".")[0]}`;
             await cloudinary.uploader.destroy(publicId);
-        } 
+        }
+
+        const userPosts = await Post.find({ author: id });
+        
+        for (const post of userPosts) {
+            if (post.image) {
+                const imgSplit = post.image.split("/");
+                const publicId = `${imgSplit[imgSplit.length - 2]}/${imgSplit[imgSplit.length - 1].split(".")[0]}`;
+                await cloudinary.uploader.destroy(publicId);
+            }
+        }
+        await Post.deleteMany({ author: id });
+
         await User.findByIdAndDelete(id);
-        return res.status(200).json({ message: "User deleted successfully" });
+
+        return res.status(200).json({ message: "User and related data deleted successfully" });
+
     } catch (error) {
-        return res.status(500).json({ message: "Error deleting user", error });
+        return res.status(500).json({ message: "Error deleting user", error: error.message });
     }
 };
 
-module.exports = {register, login, addFav, upgradeRole, getUser, deleteUser};
+module.exports = {register, login, addFav, upgradeRole, getUser, updateUser, deleteUser};

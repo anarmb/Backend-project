@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const { connectDB } = require("./src/config/db.js");
-const cloudinary = require("cloudinary").v2;
+const cloudinary = require("./src/config/cloudinary.js");
 const userRoutes = require("./src/routes/user.routes.js");
 const postRoutes = require("./src/routes/post.routes.js");
 
@@ -9,13 +9,6 @@ const app = express();
 
 /*Conexión a la BD*/
 connectDB();
-
-/*Configuración de Cloudinary*/
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 /*Middlewares*/
 app.use(express.json());
