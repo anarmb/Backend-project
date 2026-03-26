@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const { connectDB } = require("./src/config/db.js");
-const cloudinary = require("./src/config/cloudinary.js");
 const userRoutes = require("./src/routes/user.routes.js");
 const postRoutes = require("./src/routes/post.routes.js");
 

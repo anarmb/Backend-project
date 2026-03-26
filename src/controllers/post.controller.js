@@ -1,6 +1,6 @@
 const Post = require("../models/Post.model.js");
 const User = require("../models/User.model.js");
-const cloudinary = require("../config/cloudinary.js");
+const { deleteImgCloudinary } = require("../utils/deleteFile.js");
 
 const createPost = async (req, res) => {
     try {
@@ -20,7 +20,6 @@ const createPost = async (req, res) => {
         );
 
         return res.status(201).json(createdPost);
-
     } catch (error) {
         return res.status(500).json({ message: "Error creating post", error: error.message });
     }
@@ -28,17 +27,17 @@ const createPost = async (req, res) => {
 
 const getAllPosts = async (req, res) => {
     try {
-        const posts = await Post.find().populate("author", "username email");
+        const posts = await Post.find().populate("author", "username email -password");
         return res.status(200).json(posts);
     } catch (error) {
-        return res.status(500).json({ message: "Error getting posts", error });
+        return res.status(500).json({ message: "Error getting posts", error: error.message });
     }
 };
 
 const getPostById = async (req, res) => {
     try {
         const { id } = req.params;
-        const post = await Post.findById(id).populate("author", "username email");
+        const post = await Post.findById(id).populate("author", "username email -password");
 
         if (!post) {
             return res.status(404).json({ message: "Post not found" });
@@ -46,7 +45,7 @@ const getPostById = async (req, res) => {
 
         return res.status(200).json(post);
     } catch (error) {
-        return res.status(500).json({ message: "Error getting post", error });
+        return res.status(500).json({ message: "Error getting post", error: error.message });
     }
 };
 
@@ -68,11 +67,7 @@ const updatePost = async (req, res) => {
         if (req.file) {
             updateData.image = req.file.path;
             if (postFound.image) {
-                const imgSplit = postFound.image.split("/");
-                const folderName = imgSplit[imgSplit.length - 2];
-                const fileName = imgSplit[imgSplit.length - 1].split(".")[0];
-                const publicId = `${folderName}/${fileName}`;
-                await cloudinary.uploader.destroy(publicId);
+                await deleteImgCloudinary(postFound.image);
             }
         }
 
@@ -98,12 +93,7 @@ const deletePost = async (req, res) => {
         }
 
         if (post.image) {
-            const imgSplit = post.image.split("/");
-            const folderName = imgSplit[imgSplit.length - 2];
-            const fileName = imgSplit[imgSplit.length - 1].split(".")[0];
-            const publicId = `${folderName}/${fileName}`;
-            
-            await cloudinary.uploader.destroy(publicId);
+            await deleteImgCloudinary(post.image);
         }
         
         await Post.findByIdAndDelete(id);
@@ -111,8 +101,8 @@ const deletePost = async (req, res) => {
 
         return res.status(200).json({ message: "Post deleted successfully" });
     } catch (error) {
-        return res.status(500).json({ message: "Error deleting post", error });
+        return res.status(500).json({ message: "Error deleting post", error: error.message });
     }
 };
 
-module.exports = { createPost, getAllPosts, updatePost, deletePost, getPostById }
+module.exports = { createPost, getAllPosts, updatePost, deletePost, getPostById };

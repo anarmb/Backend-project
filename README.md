@@ -54,7 +54,7 @@ src/
 - `role`: String (`"user"` o `"admin"`, por defecto `"user"`)  
 - `image`: String
 -  `posts`: [Array de ObjectId, relación con otra colección]
--  `favorites`: [Array de ObjectId, relación con otra colección]
+-  `favs`: [Array de ObjectId, relación con otra colección]
  Los datos en el array no se duplican.
 ---
 ### Modelo Post
